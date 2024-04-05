@@ -4,6 +4,7 @@ const {
   customers,
   revenue,
   users,
+  workspaces
 } = require('../app/lib/placeholder-data.js');
 const bcrypt = require('bcrypt');
 
@@ -160,6 +161,45 @@ async function seedRevenue(client) {
   }
 }
 
+async function seedWorkspaces(client) {
+  try {
+    await client.sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
+
+    // Create the "workspaces" table if it doesn't exist
+    const createTable = await client.sql`
+      CREATE TABLE IF NOT EXISTS workspaces (
+        id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        host VARCHAR(255) NOT NULL,
+        image_url VARCHAR(255) NOT NULL
+      );
+    `;
+
+    console.log(`Created "workspaces" table`);
+
+    // Insert data into the "workspaces" table
+    const insertedWorkspaces = await Promise.all(
+      workspaces.map(
+        (workspace) => client.sql`
+        INSERT INTO workspaces (id, name, host, image_url)
+        VALUES (${workspace.id}, ${workspace.name}, ${workspace.host}, ${workspace.image_url})
+        ON CONFLICT (id) DO NOTHING;
+      `,
+      ),
+    );
+
+    console.log(`Seeded ${insertedWorkspaces.length} workspaces`);
+
+    return {
+      createTable,
+      workspaces: insertedWorkspaces,
+    };
+  } catch (error) {
+    console.error('Error seeding workspaces:', error);
+    throw error;
+  }
+}
+
 async function main() {
   const client = await db.connect();
 
@@ -167,6 +207,7 @@ async function main() {
   await seedCustomers(client);
   await seedInvoices(client);
   await seedRevenue(client);
+  await seedWorkspaces(client);
 
   await client.end();
 }
